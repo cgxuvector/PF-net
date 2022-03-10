@@ -1,0 +1,28 @@
+{
+  "maze_path": "./env/mazes/",
+  "save_path": "./data",
+
+  "sample_num": 100,
+  "maze_num": 20,
+
+  "policy_type": "random",
+
+  "maze_size": 7,
+  "room_size": 3,
+  "wall_size": 0.01,
+  "obs_name": "rgb",
+
+  "action_space": "3-actions",
+
+  "obs_height": 56,
+  "obs_width": 56,
+
+  "max_episode_steps": 1000,
+
+  "rnd_seed": 1234,
+  "rnd_init": 1,
+  "rnd_goal": 1,
+
+  "agent_rnd_spawn": 1,
+  "goal_rnd_spawn": 1
+}
