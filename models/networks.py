@@ -137,17 +137,19 @@ class ObservationModel(nn.Module):
 
 
 class TransitionModel(nn.Module):
-    def __init__(self, batch_size=32):
+    def __init__(self, batch_size, state_dim):
         super(TransitionModel, self).__init__()
 
         self.batch_size = batch_size
 
+        self.state_dim = state_dim
+
         self.dyna_model = nn.Sequential(
-            nn.Linear(7 + 1, 256),
+            nn.Linear(state_dim + 1, 256),
             nn.ReLU(inplace=True),
             nn.Linear(256, 256),
             nn.ReLU(inplace=True),
-            nn.Linear(256, 7)
+            nn.Linear(256, state_dim)
         )
 
     def forward(self, x, u):
@@ -161,16 +163,19 @@ class TransitionModel(nn.Module):
 
 
 class STNet(nn.Module):
-    def __init__(self, batch_size=32):
+    def __init__(self, batch_size, state_dim):
         # inherit from nn
         super(STNet, self).__init__()
 
         # set the batch size
         self.batch_size = batch_size
 
+        # state dimension
+        self.state_dim = state_dim
+
         # localization network
         self.localization = nn.Sequential(
-            nn.Linear(7, 256),
+            nn.Linear(self.state_dim, 256),
             nn.ReLU(inplace=True),
 
             nn.Linear(256, 256),
@@ -220,14 +225,23 @@ class STNet(nn.Module):
 
 
 class PFNet(nn.Module):
-    def __init__(self, device, obs_type="color", batch_size=32, particle_num=4, enable_re_sample=False):
+    def __init__(self,
+                 state_dim,
+                 device,
+                 obs_type="color",
+                 batch_size=32,
+                 particle_num=4,
+                 enable_re_sample=False):
         super(PFNet, self).__init__()
 
         # set the batch size
         self.batch_size = batch_size
 
+        # state dimension
+        self.state_dim = state_dim
+
         # spatial transformer network
-        self.stn_net = STNet(batch_size).to(device)
+        self.stn_net = STNet(batch_size=batch_size, state_dim=state_dim).to(device)
 
         # observation model
         self.obs_func = ObservationModel(obs_type=obs_type,
@@ -235,12 +249,10 @@ class PFNet(nn.Module):
                                          particle_num=particle_num).to(device)
 
         # transition function
-        self.trans_func = TransitionModel().to(device)
+        self.trans_func = TransitionModel(batch_size=batch_size, state_dim=state_dim).to(device)
 
         # particles
         self.k = particle_num
-        self.particles = torch.randn((self.k, 7)).unsqueeze(dim=0).expand(self.batch_size, -1, -1).to(device)
-        self.weights = (torch.ones(self.k) * (1.0 / self.k)).expand(self.batch_size, -1).to(device)
 
         # set the alpha
         self.alpha = 0.5
@@ -251,7 +263,7 @@ class PFNet(nn.Module):
     def resample(self):
         pass
 
-    def forward(self, o, u, gm):
+    def forward(self, o, u, gm, state):
         """ PF-net forward pass"""
         """ Expand the input """
         # expand the action: batch x 1 -> batch x k x 1
@@ -260,66 +272,31 @@ class PFNet(nn.Module):
         # expand the observation: batch x k x 3 x 56 x 56
         o = o.unsqueeze(dim=1).expand(-1, self.k, -1, -1, -1)
 
+        """ Split the particles and weights """
+        particles_states, particles_weights = state
+
         """ Observation update """
         # transform the global map into local maps
-        local_m = self.stn_net(self.particles, gm)
+        local_m = self.stn_net(particles_states, gm)
         # observation update
         obs_likelihood = self.obs_func(o, local_m)
-        self.weights += obs_likelihood  # log space, unnormalized
+        particles_weights = particles_weights + obs_likelihood  # log space, unnormalized
 
         """ Re-sample strategy """
         if self.re_sample:
             self.resample()
 
         # motion update: only affects the particle state input
-        self.particles = self.trans_func(self.particles, u)
+        particles_states = self.trans_func(particles_states, u)
 
         # create new state
-        tmp_weights = self.weights.unsqueeze(dim=-1).expand(self.batch_size, self.k, 7)
-        next_state = torch.mul(self.particles, tmp_weights).sum(dim=1)
+        particles_weights = particles_weights.unsqueeze(dim=-1).expand(self.batch_size, self.k, self.state_dim)
+        next_state = torch.mul(particles_states, particles_weights).sum(dim=1)
 
-        return next_state
+        # reshape the weights
+        particles_weights = particles_weights[:, :, 0]
 
+        # update the state
+        state = [particles_states, particles_weights]
 
-# # device
-# device = torch.device("cuda:0")
-#
-# batch_size = 32
-#
-# # test code
-# test_o = torch.randn((batch_size, 3, 56, 56)).to(device)
-# test_u = torch.randn((batch_size, 1)).to(device)
-# test_m = torch.randn((1, 1, 469, 776)).to(device)
-#
-# # test model
-# test_pf_net = PFNet(device, batch_size=batch_size, particle_num=30)
-#
-# # output
-# test_output = test_pf_net(test_o, test_u, test_m)
-# print(test_output)
-#
-# torch.save(test_pf_net.state_dict(), "test.pt")
-#
-# batch_size = 1
-#
-# # test code
-# test_o = torch.randn((batch_size, 3, 56, 56)).to(device)
-# test_u = torch.randn((batch_size, 1)).to(device)
-# test_m = torch.randn((1, 1, 469, 776)).to(device)
-#
-# test_pf_net_1 = PFNet(device, batch_size=1, particle_num=1000)
-# test_pf_net_1.load_state_dict(torch.load("test.pt", map_location=device))
-# test_pf_net_1.eval()
-#
-# print(test_pf_net_1(test_o, test_u, test_m))
-
-
-        # # update the weight
-        # self.weights = torch.mul(self.weights, obs_likelihood)
-        # self.weights = self.weights / self.weights.sum()
-        #
-        # # soft sampling
-        # weight_q = self.alpha * self.weights + (1 - self.alpha) * torch.ones_like(self.weights) / self.k
-        #
-        # # update the weights using soft-sampling
-        # self.weights = torch.div(self.weights, weight_q)
+        return next_state, state

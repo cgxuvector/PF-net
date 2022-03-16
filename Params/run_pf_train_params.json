@@ -1,0 +1,32 @@
+{
+  "device": "cuda:0",
+
+  "rnd_seed": 1234,
+
+  "epoch_num": 100,
+
+  "iter_num_per_epoch": 100,
+
+  "lr": 2.5e-4,
+  "weight_decay": 5e-4,
+
+  "batch_size": 8,
+
+  "save_dir": "./results",
+
+  "particle_num": 30,
+
+  "step_num_per_seq": 2,
+
+  "state_dim": 4,
+
+  "covariance_scale": 1.0,
+
+  "val_iter_freq": 100,
+
+  "val_num": 10,
+
+  "val_batch_size": 8,
+
+  "save_period": 1000
+}
