@@ -37,7 +37,7 @@ def convert_episodes_to_sequence(episodes_data, step_num=1):
 
 def load_maze_data(maze_id, step_num):
     # load all episodes in one maze
-    data = np.load(f"./data/maze_7_rgb_id_{maze_id}.npy", allow_pickle=True).tolist()
+    data = np.load(f"/mnt/data/cheng_results/maze_data/maze_7/maze_7_rgb_id_{maze_id}.npy", allow_pickle=True).tolist()
 
     # map data
     map_data = data[0]
@@ -48,7 +48,7 @@ def load_maze_data(maze_id, step_num):
     return map_data, seq_data
 
 
-def sample_mini_batch(data_set, batch_size, device=torch.device("cuda:0")):
+def sample_mini_batch(data_set, batch_size):
     # sample the mini-batch data
     sampled_data = random.sample(data_set, batch_size)
 
@@ -82,7 +82,7 @@ def run_val(model, particle_generator, configs):
         # training iteration per epoch
         for v_n in range(configs['val_num']):
             # sample a maze environment
-            val_maze_id = random.sample(range(20), 1)[0]
+            val_maze_id = random.sample(range(10, 20, 1), 1)[0]
             # load the offline data for that maze
             val_maze_map_data, val_maze_maze_data = load_maze_data(maze_id=val_maze_id,
                                                                    step_num=configs['step_num_per_seq'])
@@ -165,7 +165,7 @@ def run_train(configs):
                                          desc="Train epoch loop",
                                          position=0)):
         # sample a maze environment
-        maze_id = random.sample(range(20), 1)[0]
+        maze_id = random.sample(range(0, 10, 1), 1)[0]
         # load the offline data for that maze
         maze_map_data, maze_maze_data = load_maze_data(maze_id=maze_id,
                                                        step_num=configs['step_num_per_seq'])

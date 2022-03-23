@@ -1,18 +1,18 @@
 {
-  "device": "cuda:0",
+  "device": "cuda:3",
 
   "rnd_seed": 1234,
 
-  "epoch_num": 100,
+  "epoch_num": 1000,
 
-  "iter_num_per_epoch": 100,
+  "iter_num_per_epoch": 200,
 
   "lr": 2.5e-4,
   "weight_decay": 5e-4,
 
-  "batch_size": 8,
+  "batch_size": 32,
 
-  "save_dir": "./results",
+  "save_dir": "./results/3-16-2022",
 
   "particle_num": 30,
 
@@ -22,11 +22,11 @@
 
   "covariance_scale": 1.0,
 
-  "val_iter_freq": 100,
+  "val_iter_freq": 200,
 
   "val_num": 10,
 
-  "val_batch_size": 8,
+  "val_batch_size": 32,
 
-  "save_period": 1000
+  "save_period": 2000
 }
